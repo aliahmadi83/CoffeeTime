@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ماشین‌حساب هزینه واقعی مانا</title>
+    
+    <!-- فونت وزیرمتن -->
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background-color: #FAF8F4;
+            font-family: 'Vazirmatn', Tahoma, sans-serif;
+        }
+        * {
+            box-sizing: border-box;
+        }
+    </style>
+
+    <!-- بارگذاری React و ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- بارگذاری Babel برای ترجمه کدهای React در مرورگر -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- بارگذاری Recharts برای نمودارها -->
+    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+</head>
+<body>
+    <!-- محل قرارگیری اپلیکیشن React -->
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo } = React;
+        const { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = window.Recharts;
+
+        const TOKENS = {
+            bg: "#FAF8F4",
+            ink: "#23201B",
+            inkSoft: "#6B6459",
+            card: "#FFFFFF",
+            border: "#E7E1D6",
+            primary: "#3F5D4E",
+            primaryDark: "#2C4237",
+            primarySoft: "#E7EEE9",
+            gold: "#C99A3C",
+            goldSoft: "#F7EDD8",
+            brick: "#B3492D",
+            brickSoft: "#F6E4DE",
+        };
+
+        const INITIAL_MATERIALS = [
+            { id: "m1", name: "دانه قهوه اسپرسو", unit: "کیلوگرم", purchasePrice: 620000, purchaseDate: "1404/02/10", currentPrice: 890000 },
+            { id: "m2", name: "شیر پرچرب", unit: "لیتر", purchasePrice: 68000, purchaseDate: "1404/04/01", currentPrice: 79000 },
+            { id: "m3", name: "شکر سفید", unit: "کیلوگرم", purchasePrice: 55000, purchaseDate: "1404/03/15", currentPrice: 61000 },
+            { id: "m4", name: "شربت کارامل", unit: "لیتر", purchasePrice: 310000, purchaseDate: "1404/02/20", currentPrice: 335000 },
+            { id: "m5", name: "لیوان و درب یکبار مصرف", unit: "عدد", purchasePrice: 3200, purchaseDate: "1404/04/10", currentPrice: 3400 },
+        ];
+
+        const PRODUCTS = [
+            {
+                id: "p1", name: "کاپوچینو (متوسط)", overheadPct: 15, marginPct: 55,
+                recipe: [
+                    { materialId: "m1", qty: 0.018 },
+                    { materialId: "m2", qty: 0.15 },
+                    { materialId: "m4", qty: 0 },
+                    { materialId: "m5", qty: 1 },
+                ],
+                currentSellPrice: 145000,
+            },
+            {
+                id: "p2", name: "کارامل ماکیاتو", overheadPct: 15, marginPct: 55,
+                recipe: [
+                    { materialId: "m1", qty: 0.016 },
+                    { materialId: "m2", qty: 0.18 },
+                    { materialId: "m3", qty: 0.01 },
+                    { materialId: "m4", qty: 0.03 },
+                    { materialId: "m5", qty: 1 },
+                ],
+                currentSellPrice: 168000,
+            },
+            {
+                id: "p3", name: "اسپرسو تک", overheadPct: 12, marginPct: 60,
+                recipe: [
+                    { materialId: "m1", qty: 0.009 },
+                    { materialId: "m5", qty: 1 },
+                ],
+                currentSellPrice: 78000,
+            },
+        ];
+
+        const MONTHLY_SALES = [
+            { name: "فروردین", فروش: 128, هزینه_مواد: 61 },
+            { name: "اردیبهشت", فروش: 141, هزینه_مواد: 68 },
+            { name: "خرداد", فروش: 156, هزینه_مواد: 79 },
+            { name: "تیر", فروش: 149, هزینه_مواد: 88 },
+            { name: "مرداد", فروش: 168, هزینه_مواد: 97 },
+            { name: "شهریور", فروش: 179, هزینه_مواد: 111 },
+        ];
+
+        const DAILY_SALES = [
+            { name: "شنبه", تعداد: 210 }, { name: "یکشنبه", تعداد: 198 }, { name: "دوشنبه", تعداد: 205 },
+            { name: "سه‌شنبه", تعداد: 189 }, { name: "چهارشنبه", تعداد: 224 }, { name: "پنجشنبه", تعداد: 267 },
+            { name: "جمعه", تعداد: 251 },
+        ];
+
+        function toman(n) {
+            return Math.round(n).toLocaleString("fa-IR") + " تومان";
+        }
+
+        function computeProductCost(product, materials, priceKey) {
+            return product.recipe.reduce((sum, item) => {
+                const mat = materials.find((m) => m.id === item.materialId);
+                if (!mat) return sum;
+                return sum + item.qty * mat[priceKey];
+            }, 0);
+        }
+
+        const TABS = [
+            { id: "dashboard", label: "داشبورد" },
+            { id: "materials", label: "مواد اولیه" },
+            { id: "products", label: "فرمول محصولات" },
+            { id: "reports", label: "گزارش‌ها" },
+        ];
+
+        function Card({ children, style }) {
+            return (
+                <div style={{ background: TOKENS.card, border: `1px solid ${TOKENS.border}`, borderRadius: 14, padding: 18, ...style }}>
+                    {children}
+                </div>
+            );
+        }
+
+        function Dashboard({ alerts, avgGapPct, materials, productAnalysis }) {
+            return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 14 }}>
+                        <Card>
+                            <div style={{ fontSize: 13, color: TOKENS.inkSoft }}>تعداد مواد اولیه رصدشده</div>
+                            <div style={{ fontSize: 30, fontWeight: 800, marginTop: 6 }}>{materials.length}</div>
+                        </Card>
+                        <Card>
+                            <div style={{ fontSize: 13, color: TOKENS.inkSoft }}>هشدارهای افزایش قیمت</div>
+                            <div style={{ fontSize: 30, fontWeight: 800, marginTop: 6, color: alerts.length ? TOKENS.brick : TOKENS.primary }}>
+                                {alerts.length}
+                            </div>
+                        </Card>
+                        <Card>
+                            <div style={{ fontSize: 13, color: TOKENS.inkSoft }}>میانگین فاصله قیمت تا هزینه</div>
+                            <div style={{ fontSize: 30, fontWeight: 800, marginTop: 6, color: avgGapPct > 0 ? TOKENS.brick : TOKENS.primary }}>
+                                {avgGapPct > 0 ? "+" : ""}{avgGapPct.toFixed(1)}٪
+                            </div>
+                        </Card>
+                    </div>
+
+                    <Card>
+                        <div style={{ fontWeight: 700, marginBottom: 10 }}>هشدارهای نقدینگی</div>
+                        {alerts.length === 0 && <div style={{ color: TOKENS.inkSoft, fontSize: 14 }}>در حال حاضر مورد قابل توجهی وجود ندارد.</div>}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            {alerts.map((m) => (
+                                <div key={m.id} style={{
+                                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                                    background: TOKENS.brickSoft, borderRadius: 10, padding: "10px 12px", fontSize: 13.5,
+                                }}>
+                                    <span>
+                                        قیمت <b>{m.name}</b> نسبت به تاریخ خرید {m.changePct.toFixed(0)}٪ افزایش داشته
+                                    </span>
+                                    <span style={{ color: TOKENS.brick, fontWeight: 700 }}>{toman(m.currentPrice)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </Card>
+
+                    <Card>
+                        <div style={{ fontWeight: 700, marginBottom: 10 }}>وضعیت محصولات نسبت به فرمول</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            {productAnalysis.map((p) => (
+                                <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 4px", borderBottom: `1px solid ${TOKENS.border}` }}>
+                                    <span style={{ fontSize: 14 }}>{p.name}</span>
+                                    <span style={{
+                                        fontSize: 13, fontWeight: 700, padding: "4px 10px", borderRadius: 999,
+                                        background: p.gapPct > 3 ? TOKENS.brickSoft : TOKENS.primarySoft,
+                                        color: p.gapPct > 3 ? TOKENS.brick : TOKENS.primary,
+                                    }}>
+                                        {p.gapPct > 0 ? "کسری" : "مازاد"} {Math.abs(p.gapPct).toFixed(1)}٪
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </Card>
+                </div>
+            );
+        }
+
+        function Materials({ materials, onChange }) {
+            return (
+                <Card>
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>مواد اولیه</div>
+                    <div style={{ fontSize: 13, color: TOKENS.inkSoft, marginBottom: 14 }}>
+                        قیمت خرید مربوط به زمان تأمین موجودی فعلی است. قیمت لحظه‌ای را برای شبیه‌سازی تغییرات بازار ویرایش کنید.
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        {materials.map((m) => {
+                            const changePct = ((m.currentPrice - m.purchasePrice) / m.purchasePrice) * 100;
+                            return (
+                                <div key={m.id} style={{
+                                    display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 0.7fr", gap: 10, alignItems: "center",
+                                    padding: "12px 10px", borderRadius: 10, background: TOKENS.bg,
+                                }}>
+                                    <div>
+                                        <div style={{ fontWeight: 600, fontSize: 14 }}>{m.name}</div>
+                                        <div style={{ fontSize: 12, color: TOKENS.inkSoft }}>واحد: {m.unit}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: 11, color: TOKENS.inkSoft }}>قیمت خرید ({m.purchaseDate})</div>
+                                        <div style={{ fontSize: 13.5 }}>{toman(m.purchasePrice)}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: 11, color: TOKENS.inkSoft, marginBottom: 3 }}>قیمت لحظه‌ای بازار</div>
+                                        <input
+                                            type="number"
+                                            value={m.currentPrice}
+                                            onChange={(e) => onChange(m.id, e.target.value)}
+                                            style={{
+                                                width: "100%", border: `1px solid ${TOKENS.border}`, borderRadius: 8, padding: "6px 8px",
+                                                fontFamily: "inherit", fontSize: 13.5,
+                                            }}
+                                        />
+                                    </div>
+                                    <div style={{ textAlign: "center", fontWeight: 700, color: changePct > 0 ? TOKENS.brick : TOKENS.primary, fontSize: 13.5 }}>
+                                        {changePct > 0 ? "+" : ""}{changePct.toFixed(1)}٪
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </Card>
+            );
+        }
+
+        function Products({ productAnalysis }) {
+            return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    {productAnalysis.map((p) => (
+                        <Card key={p.id}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+                                <div style={{ fontWeight: 700, fontSize: 16 }}>{p.name}</div>
+                                <div style={{ fontSize: 12, color: TOKENS.inkSoft }}>حاشیه سود هدف: {p.marginPct}٪</div>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+                                <MiniStat label="قیمت فروش فعلی" value={toman(p.currentSellPrice)} />
+                                <MiniStat label="هزینه در زمان خرید مواد" value={toman(p.costAtPurchase)} />
+                                <MiniStat label="هزینه واقعی امروز" value={toman(p.costNow)} highlight />
+                                <MiniStat
+                                    label="قیمت پیشنهادی فروش"
+                                    value={toman(p.suggestedNow)}
+                                    accent={p.gapPct > 3 ? TOKENS.brick : TOKENS.primary}
+                                />
+                            </div>
+                            {p.gapPct > 3 && (
+                                <div style={{ marginTop: 12, background: TOKENS.brickSoft, borderRadius: 10, padding: "10px 12px", fontSize: 13 }}>
+                                    با توجه به گران‌شدن مواد اولیه، قیمت فعلی حدود <b>{toman(p.gap)}</b> پایین‌تر از هزینه واقعی است.
+                                    پیشنهاد می‌شود قیمت فروش به‌روزرسانی شود.
+                                </div>
+                            )}
+                        </Card>
+                    ))}
+                </div>
+            );
+        }
+
+        function MiniStat({ label, value, highlight, accent }) {
+            return (
+                <div style={{ background: highlight ? TOKENS.goldSoft : TOKENS.bg, borderRadius: 10, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 11.5, color: TOKENS.inkSoft, marginBottom: 4 }}>{label}</div>
+                    <div style={{ fontSize: 14.5, fontWeight: 700, color: accent || TOKENS.ink }}>{value}</div>
+                </div>
+            );
+        }
+
+        function Reports() {
+            return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    <Card>
+                        <div style={{ fontWeight: 700, marginBottom: 14 }}>روند فروش و هزینه مواد اولیه (ماهانه، میلیون تومان)</div>
+                        <div style={{ width: "100%", height: 260 }}>
+                            <ResponsiveContainer>
+                                <LineChart data={MONTHLY_SALES} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                                    <CartesianGrid stroke={TOKENS.border} strokeDasharray="3 3" />
+                                    <XAxis dataKey="name" tick={{ fontSize: 12, fontFamily: "Vazirmatn" }} stroke={TOKENS.inkSoft} />
+                                    <YAxis tick={{ fontSize: 12, fontFamily: "Vazirmatn" }} stroke={TOKENS.inkSoft} />
+                                    <Tooltip contentStyle={{ fontFamily: "Vazirmatn", direction: "rtl", borderRadius: 8 }} />
+                                    <Line type="monotone" dataKey="فروش" stroke={TOKENS.primary} strokeWidth={2.5} dot={{ r: 3 }} />
+                                    <Line type="monotone" dataKey="هزینه_مواد" name="هزینه مواد" stroke={TOKENS.brick} strokeWidth={2.5} dot={{ r: 3 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
+
+                    <Card>
+                        <div style={{ fontWeight: 700, marginBottom: 14 }}>تعداد فروش بر اساس روز هفته</div>
+                        <div style={{ width: "100%", height: 240 }}>
+                            <ResponsiveContainer>
+                                <BarChart data={DAILY_SALES} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                                    <CartesianGrid stroke={TOKENS.border} strokeDasharray="3 3" />
+                                    <XAxis dataKey="name" tick={{ fontSize: 12, fontFamily: "Vazirmatn" }} stroke={TOKENS.inkSoft} />
+                                    <YAxis tick={{ fontSize: 12, fontFamily: "Vazirmatn" }} stroke={TOKENS.inkSoft} />
+                                    <Tooltip contentStyle={{ fontFamily: "Vazirmatn", direction: "rtl", borderRadius: 8 }} />
+                                    <Bar dataKey="تعداد" fill={TOKENS.gold} radius={[6, 6, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
+                </div>
+            );
+        }
+
+        function App() {
+            const [materials, setMaterials] = useState(INITIAL_MATERIALS);
+            const [tab, setTab] = useState("dashboard");
+            const [cafe, setCafe] = useState("شعبه ولیعصر");
+
+            const updateCurrentPrice = (id, value) => {
+                setMaterials((prev) => prev.map((m) => (m.id === id ? { ...m, currentPrice: Number(value) || 0 } : m)));
+            };
+
+            const productAnalysis = useMemo(() => {
+                return PRODUCTS.map((p) => {
+                    const costAtPurchase = computeProductCost(p, materials, "purchasePrice");
+                    const costNow = computeProductCost(p, materials, "currentPrice");
+                    const priceAtPurchase = costAtPurchase * (1 + p.overheadPct / 100) * (1 + p.marginPct / 100);
+                    const suggestedNow = costNow * (1 + p.overheadPct / 100) * (1 + p.marginPct / 100);
+                    const gap = suggestedNow - p.currentSellPrice;
+                    const gapPct = p.currentSellPrice ? (gap / p.currentSellPrice) * 100 : 0;
+                    return { ...p, costAtPurchase, costNow, priceAtPurchase, suggestedNow, gap, gapPct };
+                });
+            }, [materials]);
+
+            const alerts = useMemo(() => {
+                return materials
+                    .map((m) => ({ ...m, changePct: ((m.currentPrice - m.purchasePrice) / m.purchasePrice) * 100 }))
+                    .filter((m) => m.changePct > 8)
+                    .sort((a, b) => b.changePct - a.changePct);
+            }, [materials]);
+
+            const avgGapPct = useMemo(() => {
+                if (!productAnalysis.length) return 0;
+                return productAnalysis.reduce((s, p) => s + p.gapPct, 0) / productAnalysis.length;
+            }, [productAnalysis]);
+
+            return (
+                <div className="cf-app" style={{ color: TOKENS.ink }}>
+                    <header style={{ background: TOKENS.primaryDark, color: "#fff", padding: "18px 20px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1100, margin: "0 auto" }}>
+                            <div>
+                                <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: 0.2 }}>مانا | ماشین‌حساب هزینه واقعی</div>
+                                <div style={{ fontSize: 13, color: "#C9D6CE", marginTop: 2 }}>قیمت‌گذاری بر اساس نرخ لحظه‌ای مواد اولیه</div>
+                            </div>
+                            <select
+                                value={cafe}
+                                onChange={(e) => setCafe(e.target.value)}
+                                style={{
+                                    background: "rgba(255,255,255,0.12)", color: "#fff", border: "1px solid rgba(255,255,255,0.25)",
+                                    borderRadius: 10, padding: "8px 12px", fontSize: 13, fontFamily: "inherit",
+                                }}
+                            >
+                                <option style={{ color: TOKENS.ink }}>شعبه ولیعصر</option>
+                                <option style={{ color: TOKENS.ink }}>شعبه سعادت‌آباد</option>
+                            </select>
+                        </div>
+                    </header>
+
+                    <nav style={{ background: TOKENS.card, borderBottom: `1px solid ${TOKENS.border}`, position: "sticky", top: 0, zIndex: 10 }}>
+                        <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", overflowX: "auto", gap: 4, padding: "0 12px" }}>
+                            {TABS.map((t) => (
+                                <button
+                                    key={t.id}
+                                    onClick={() => setTab(t.id)}
+                                    style={{
+                                        border: "none", background: "transparent", cursor: "pointer", padding: "14px 16px",
+                                        fontSize: 14, fontFamily: "inherit", whiteSpace: "nowrap",
+                                        color: tab === t.id ? TOKENS.primary : TOKENS.inkSoft,
+                                        fontWeight: tab === t.id ? 700 : 500,
+                                        borderBottom: tab === t.id ? `2px solid ${TOKENS.primary}` : "2px solid transparent",
+                                    }}
+                                >
+                                    {t.label}
+                                </button>
+                            ))}
+                        </div>
+                    </nav>
+
+                    <main style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 16px 90px" }}>
+                        {tab === "dashboard" && (
+                            <Dashboard alerts={alerts} avgGapPct={avgGapPct} materials={materials} productAnalysis={productAnalysis} />
+                        )}
+                        {tab === "materials" && <Materials materials={materials} onChange={updateCurrentPrice} />}
+                        {tab === "products" && <Products productAnalysis={productAnalysis} materials={materials} />}
+                        {tab === "reports" && <Reports />}
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
