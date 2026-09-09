@@ -271,7 +271,7 @@ function renderMaterials(){
     html += `<div class="mat-row">
       <div><div class="mat-name">${m.name}</div><div class="mat-unit">واحد: ${m.unit}</div></div>
       <div><div class="mat-label">قیمت خرید (${m.purchaseDate})</div><div class="mat-price">${toman(m.purchasePrice)}</div></div>
-      <div><div class="mat-label">قیمت لحظه‌ای بازار</div><input type="number" value="${m.currentPrice}" data-id="${m.id}" class="price-input"/></div>
+      <div><div class="mat-label">قیمت لحظه‌ای بازار</div><input type="number" value="${toman(m.currentPrice)}" data-id="${m.id}" class="price-input"/></div>
       <div class="mat-change ${changePct>0?'up':'down'}">${changePct>0?'+':''}${faNum(changePct,1)}٪</div>
     </div>`;
   });
