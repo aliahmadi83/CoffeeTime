@@ -11,7 +11,6 @@
 <meta name="format-detection" content="telephone=no" />
 <title>مانا | ماشین‌حساب هزینه واقعی</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%232C4237'/%3E%3Cpath d='M28 42 Q28 75 50 75 Q72 75 72 42 Z' fill='%23C99A3C'/%3E%3Cpath d='M72 46 Q86 46 86 56 Q86 66 72 64' fill='none' stroke='%23C99A3C' stroke-width='6'/%3E%3C/svg%3E" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap');
 
@@ -24,7 +23,6 @@
   html,body{margin:0; height:100%; overflow-x:hidden;}
   body{font-family:'Vazirmatn', Tahoma, sans-serif; background:var(--bg); color:var(--ink); overscroll-behavior-y:none;}
 
-  /* ---------- Splash ---------- */
   #splash{
     position:fixed; inset:0; z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center;
     background:radial-gradient(circle at 50% 30%, #34523F 0%, #1F3128 100%);
@@ -45,7 +43,6 @@
   .progress-fill{ height:100%; width:0%; background:var(--gold); border-radius:99px; animation:fillBar 2.6s ease forwards; }
   @keyframes fillBar{ from{width:0%;} to{width:100%;} }
 
-  /* ---------- App shell ---------- */
   #appRoot{ opacity:0; transition:opacity .6s ease; }
   #appRoot.show{ opacity:1; }
 
@@ -98,7 +95,6 @@
 </head>
 <body>
 
-<!-- ================= Splash ================= -->
 <div id="splash">
   <svg viewBox="0 0 220 220">
     <ellipse cx="110" cy="178" rx="60" ry="10" fill="rgba(247,237,216,0.15)"/>
@@ -113,7 +109,6 @@
   <div class="progress-track"><div class="progress-fill"></div></div>
 </div>
 
-<!-- ================= App ================= -->
 <div id="appRoot">
   <header>
     <div class="header-inner">
@@ -141,13 +136,18 @@
 </div>
 
 <script>
-// ---------- Splash timing ----------
 window.addEventListener("load", () => {
   setTimeout(() => {
     document.getElementById("splash").classList.add("hide");
     document.getElementById("appRoot").classList.add("show");
   }, 3000);
 });
+
+// ---------- Persian digits helper ----------
+function faNum(n, digits){
+  const opts = (digits !== undefined) ? { minimumFractionDigits: digits, maximumFractionDigits: digits } : undefined;
+  return Number(n).toLocaleString('fa-IR', opts);
+}
 
 // ---------- Data ----------
 let materials = [
@@ -206,7 +206,7 @@ function getAlerts(){
     .sort((a,b)=>b.changePct-a.changePct);
 }
 
-// ---------- Render: Tabs ----------
+// ---------- Tabs ----------
 let activeTab = "dashboard";
 const tabBar = document.getElementById("tabBar");
 TABS.forEach(t=>{
@@ -225,8 +225,9 @@ function setTab(id){
   document.getElementById("view-"+id).classList.add("active");
   if(id==="reports") setTimeout(renderCharts, 0);
 }
+window.addEventListener("resize", () => { if(activeTab==="reports") renderCharts(); });
 
-// ---------- Render: Dashboard ----------
+// ---------- Dashboard ----------
 function renderDashboard(){
   const alerts = getAlerts();
   const products = analyzeProducts();
@@ -234,9 +235,9 @@ function renderDashboard(){
   const el = document.getElementById("view-dashboard");
 
   let html = `<div class="grid-stats">
-    <div class="card"><div class="stat-label">تعداد مواد اولیه رصدشده</div><div class="stat-value">${materials.length}</div></div>
-    <div class="card"><div class="stat-label">هشدارهای افزایش قیمت</div><div class="stat-value" style="color:${alerts.length?'var(--brick)':'var(--primary)'}">${alerts.length}</div></div>
-    <div class="card"><div class="stat-label">میانگین فاصله قیمت فروش تا هزینه واقعی</div><div class="stat-value" style="color:${avgGapPct>0?'var(--brick)':'var(--primary)'}">${avgGapPct>0?'+':''}${avgGapPct.toFixed(1)}٪</div></div>
+    <div class="card"><div class="stat-label">تعداد مواد اولیه رصدشده</div><div class="stat-value">${faNum(materials.length)}</div></div>
+    <div class="card"><div class="stat-label">هشدارهای افزایش قیمت</div><div class="stat-value" style="color:${alerts.length?'var(--brick)':'var(--primary)'}">${faNum(alerts.length)}</div></div>
+    <div class="card"><div class="stat-label">میانگین فاصله قیمت فروش تا هزینه واقعی</div><div class="stat-value" style="color:${avgGapPct>0?'var(--brick)':'var(--primary)'}">${avgGapPct>0?'+':''}${faNum(avgGapPct,1)}٪</div></div>
   </div>`;
 
   html += `<div class="card"><div class="card-title">هشدارهای نقدینگی</div>`;
@@ -244,7 +245,7 @@ function renderDashboard(){
     html += `<div style="color:var(--ink-soft); font-size:14px;">در حال حاضر مورد قابل توجهی وجود ندارد.</div>`;
   } else {
     alerts.forEach(m=>{
-      html += `<div class="alert-row"><span>قیمت <b>${m.name}</b> نسبت به تاریخ خرید ${m.changePct.toFixed(0)}٪ افزایش داشته</span><span class="alert-amount">${toman(m.currentPrice)}</span></div>`;
+      html += `<div class="alert-row"><span>قیمت <b>${m.name}</b> نسبت به تاریخ خرید ${faNum(m.changePct,0)}٪ افزایش داشته</span><span class="alert-amount">${toman(m.currentPrice)}</span></div>`;
     });
   }
   html += `</div>`;
@@ -252,14 +253,14 @@ function renderDashboard(){
   html += `<div class="card"><div class="card-title">وضعیت محصولات نسبت به فرمول</div>`;
   products.forEach(p=>{
     const bad = p.gapPct > 3;
-    html += `<div class="prod-row"><span>${p.name}</span><span class="badge ${bad?'bad':'good'}">${p.gapPct>0?'کسری':'مازاد'} ${Math.abs(p.gapPct).toFixed(1)}٪</span></div>`;
+    html += `<div class="prod-row"><span>${p.name}</span><span class="badge ${bad?'bad':'good'}">${p.gapPct>0?'کسری':'مازاد'} ${faNum(Math.abs(p.gapPct),1)}٪</span></div>`;
   });
   html += `</div>`;
 
   el.innerHTML = html;
 }
 
-// ---------- Render: Materials ----------
+// ---------- Materials ----------
 function renderMaterials(){
   const el = document.getElementById("view-materials");
   let html = `<div class="card">
@@ -271,7 +272,7 @@ function renderMaterials(){
       <div><div class="mat-name">${m.name}</div><div class="mat-unit">واحد: ${m.unit}</div></div>
       <div><div class="mat-label">قیمت خرید (${m.purchaseDate})</div><div class="mat-price">${toman(m.purchasePrice)}</div></div>
       <div><div class="mat-label">قیمت لحظه‌ای بازار</div><input type="number" value="${m.currentPrice}" data-id="${m.id}" class="price-input"/></div>
-      <div class="mat-change ${changePct>0?'up':'down'}">${changePct>0?'+':''}${changePct.toFixed(1)}٪</div>
+      <div class="mat-change ${changePct>0?'up':'down'}">${changePct>0?'+':''}${faNum(changePct,1)}٪</div>
     </div>`;
   });
   html += `</div>`;
@@ -288,14 +289,14 @@ function renderMaterials(){
   });
 }
 
-// ---------- Render: Products ----------
+// ---------- Products ----------
 function renderProducts(){
   const el = document.getElementById("view-products");
   const products = analyzeProducts();
   let html = "";
   products.forEach(p=>{
     html += `<div class="card prod-card">
-      <div class="prod-head"><b>${p.name}</b><span>حاشیه سود هدف: ${p.marginPct}٪</span></div>
+      <div class="prod-head"><b>${p.name}</b><span>حاشیه سود هدف: ${faNum(p.marginPct)}٪</span></div>
       <div class="mini-grid">
         <div class="mini-stat"><div class="l">قیمت فروش فعلی</div><div class="v">${toman(p.currentSellPrice)}</div></div>
         <div class="mini-stat"><div class="l">هزینه در زمان خرید مواد</div><div class="v">${toman(p.costAtPurchase)}</div></div>
@@ -310,45 +311,99 @@ function renderProducts(){
   el.innerHTML = html;
 }
 
-// ---------- Render: Reports ----------
-let monthlyChart, dailyChart;
+// ---------- Reports (dependency-free inline SVG charts) ----------
 function renderReportsShell(){
   const el = document.getElementById("view-reports");
   el.innerHTML = `
     <div class="card">
       <div class="card-title">روند فروش و هزینه مواد اولیه (ماهانه، میلیون تومان)</div>
-      <div class="chart-wrap"><canvas id="monthlyChart"></canvas></div>
+      <div class="chart-wrap" id="monthlyChartHost"></div>
     </div>
     <div class="card">
       <div class="card-title">تعداد فروش بر اساس روز هفته</div>
-      <div class="chart-wrap"><canvas id="dailyChart"></canvas></div>
+      <div class="chart-wrap" id="dailyChartHost"></div>
     </div>`;
 }
+
+function buildLineChart(elId, labels, series, height){
+  height = height || 240;
+  const el = document.getElementById(elId);
+  const width = Math.max(el.clientWidth || 320, 280);
+  const padL=20, padR=20, padT=26, padB=30;
+  const plotW = width-padL-padR, plotH = height-padT-padB;
+  const n = labels.length;
+  const maxV = Math.max(1, ...series.flatMap(s=>s.data)) * 1.2;
+  const xPos = i => padL + (n>1 ? i*(plotW/(n-1)) : plotW/2);
+  const yPos = v => padT + plotH - (v/maxV)*plotH;
+
+  let grid = '';
+  for(let g=0; g<=4; g++){
+    const y = padT + plotH - (g/4)*plotH;
+    grid += `<line x1="${padL}" y1="${y}" x2="${width-padR}" y2="${y}" stroke="#E7E1D6" stroke-width="1"/>`;
+  }
+
+  let xLabels = '';
+  labels.forEach((lab,i)=>{
+    xLabels += `<text x="${xPos(i)}" y="${height-8}" font-size="11" fill="#6B6459" text-anchor="middle" font-family="Vazirmatn">${lab}</text>`;
+  });
+
+  let linesSvg = '';
+  series.forEach(s=>{
+    const pts = s.data.map((v,i)=>`${xPos(i)},${yPos(v)}`).join(' ');
+    linesSvg += `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s.data.forEach((v,i)=>{
+      linesSvg += `<circle cx="${xPos(i)}" cy="${yPos(v)}" r="3.5" fill="${s.color}"/>`;
+      linesSvg += `<text x="${xPos(i)}" y="${yPos(v)-8}" font-size="10.5" fill="${s.color}" text-anchor="middle" font-family="Vazirmatn" font-weight="700">${faNum(v)}</text>`;
+    });
+  });
+
+  let legend = '';
+  let lx = padL;
+  series.forEach(s=>{
+    legend += `<rect x="${lx}" y="4" width="10" height="10" rx="2" fill="${s.color}"/><text x="${lx+15}" y="13" font-size="11.5" fill="#23201B" font-family="Vazirmatn">${s.name}</text>`;
+    lx += 15 + s.name.length*7 + 18;
+  });
+
+  el.innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMidYMid meet">${legend}${grid}${linesSvg}${xLabels}</svg>`;
+}
+
+function buildBarChart(elId, labels, data, color, height){
+  height = height || 240;
+  const el = document.getElementById(elId);
+  const width = Math.max(el.clientWidth || 320, 280);
+  const padL=16, padR=16, padT=24, padB=30;
+  const plotW = width-padL-padR, plotH = height-padT-padB;
+  const n = labels.length;
+  const maxV = Math.max(1, ...data) * 1.2;
+  const slot = plotW/n;
+  const barW = slot*0.55;
+  const yPos = v => padT + plotH - (v/maxV)*plotH;
+
+  let grid = '';
+  for(let g=0; g<=4; g++){
+    const y = padT + plotH - (g/4)*plotH;
+    grid += `<line x1="${padL}" y1="${y}" x2="${width-padR}" y2="${y}" stroke="#E7E1D6" stroke-width="1"/>`;
+  }
+
+  let bars = '';
+  data.forEach((v,i)=>{
+    const x = padL + i*slot + (slot-barW)/2;
+    const y = yPos(v);
+    const h = padT+plotH-y;
+    bars += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="5" fill="${color}"/>`;
+    bars += `<text x="${x+barW/2}" y="${y-6}" font-size="10.5" fill="#6B6459" text-anchor="middle" font-family="Vazirmatn" font-weight="700">${faNum(v)}</text>`;
+    bars += `<text x="${x+barW/2}" y="${height-8}" font-size="11" fill="#6B6459" text-anchor="middle" font-family="Vazirmatn">${labels[i]}</text>`;
+  });
+
+  el.innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg>`;
+}
+
 function renderCharts(){
-  const inkSoft = "#6B6459";
-  if(monthlyChart) monthlyChart.destroy();
-  if(dailyChart) dailyChart.destroy();
-
-  monthlyChart = new Chart(document.getElementById("monthlyChart"), {
-    type: "line",
-    data: { labels: MONTHLY_LABELS, datasets: [
-      { label:"فروش", data: MONTHLY_SALES, borderColor:"#3F5D4E", backgroundColor:"#3F5D4E", tension:0.3 },
-      { label:"هزینه مواد", data: MONTHLY_COST, borderColor:"#B3492D", backgroundColor:"#B3492D", tension:0.3 },
-    ]},
-    options: { responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ labels:{ font:{ family:"Vazirmatn" } } } },
-      scales:{ x:{ ticks:{ font:{ family:"Vazirmatn" } }, grid:{ color:"#E7E1D6" } },
-                y:{ ticks:{ font:{ family:"Vazirmatn" }, color:inkSoft }, grid:{ color:"#E7E1D6" } } } }
-  });
-
-  dailyChart = new Chart(document.getElementById("dailyChart"), {
-    type: "bar",
-    data: { labels: DAILY_LABELS, datasets: [{ label:"تعداد", data: DAILY_COUNT, backgroundColor:"#C99A3C", borderRadius:6 }] },
-    options: { responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ display:false } },
-      scales:{ x:{ ticks:{ font:{ family:"Vazirmatn" } }, grid:{ display:false } },
-                y:{ ticks:{ font:{ family:"Vazirmatn" }, color:inkSoft }, grid:{ color:"#E7E1D6" } } } }
-  });
+  buildLineChart('monthlyChartHost', MONTHLY_LABELS, [
+    { name:'فروش', color:'#3F5D4E', data: MONTHLY_SALES },
+    { name:'هزینه مواد', color:'#B3492D', data: MONTHLY_COST },
+  ]);
+  buildBarChart('dailyChartHost', DAILY_LABELS, DAILY_COUNT, '#C99A3C');
 }
 
 // ---------- Init ----------
