@@ -148,6 +148,10 @@ function faNum(n, digits){
   const opts = (digits !== undefined) ? { minimumFractionDigits: digits, maximumFractionDigits: digits } : undefined;
   return Number(n).toLocaleString('fa-IR', opts);
 }
+const FA_DIGIT_MAP = {'0':'۰','1':'۱','2':'۲','3':'۳','4':'۴','5':'۵','6':'۶','7':'۷','8':'۸','9':'۹'};
+const EN_DIGIT_MAP = {'۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9','٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9'};
+function toFaDigits(str){ return String(str).replace(/[0-9]/g, d => FA_DIGIT_MAP[d]); }
+function toEnDigits(str){ return String(str).replace(/[۰-۹٠-٩]/g, d => EN_DIGIT_MAP[d]); }
 
 // ---------- Data ----------
 let materials = [
@@ -270,8 +274,8 @@ function renderMaterials(){
     const changePct = ((m.currentPrice-m.purchasePrice)/m.purchasePrice)*100;
     html += `<div class="mat-row">
       <div><div class="mat-name">${m.name}</div><div class="mat-unit">واحد: ${m.unit}</div></div>
-      <div><div class="mat-label">قیمت خرید (${m.purchaseDate})</div><div class="mat-price">${toman(m.purchasePrice)}</div></div>
-      <div><div class="mat-label">قیمت لحظه‌ای بازار</div><input type="number" value="${toman(m.currentPrice)}" data-id="${m.id}" class="price-input"/></div>
+      <div><div class="mat-label">قیمت خرید (${toFaDigits(m.purchaseDate)})</div><div class="mat-price">${toman(m.purchasePrice)}</div></div>
+      <div><div class="mat-label">قیمت لحظه‌ای بازار</div><input type="text" inputmode="decimal" value="${toFaDigits(m.currentPrice)}" data-id="${m.id}" class="price-input"/></div>
       <div class="mat-change ${changePct>0?'up':'down'}">${changePct>0?'+':''}${faNum(changePct,1)}٪</div>
     </div>`;
   });
@@ -280,11 +284,17 @@ function renderMaterials(){
   el.querySelectorAll(".price-input").forEach(inp=>{
     inp.addEventListener("input", (e)=>{
       const id = e.target.dataset.id;
-      const val = Number(e.target.value) || 0;
+      const raw = toEnDigits(e.target.value).replace(/[^0-9]/g, "");
+      const val = Number(raw) || 0;
+      e.target.value = toFaDigits(raw);
       materials = materials.map(m => m.id===id ? {...m, currentPrice: val} : m);
-      renderAll();
-      const again = document.querySelector(`.price-input[data-id="${id}"]`);
-      if(again){ again.focus(); const v = again.value; again.value=""; again.value=v; }
+      const mat = materials.find(m => m.id === id);
+      const changeEl = e.target.closest(".mat-row").querySelector(".mat-change");
+      const pct = ((mat.currentPrice - mat.purchasePrice) / mat.purchasePrice) * 100;
+      changeEl.className = "mat-change " + (pct>0 ? "up" : "down");
+      changeEl.textContent = (pct>0?"+":"") + faNum(pct,1) + "٪";
+      renderDashboard();
+      renderProducts();
     });
   });
 }
